@@ -1,0 +1,36 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="About"
+  description="About Tech Enthusiast"
+  lang="en"
+>
+  <h1 class="section-title" style="margin-top: 0;">About</h1>
+  <p>
+    Hi, I'm a <strong>tech enthusiast</strong> documenting hands-on practice,
+    automation tooling, and self-hosted services.
+  </p>
+  <p>
+    This site is primarily in Chinese. English posts will be added here —
+    this page reserves the <code>/en/</code> path for future expansion.
+  </p>
+  <p><a href="/">← Back to home</a></p>
+</BaseLayout>
+
+<style>
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+</style>
