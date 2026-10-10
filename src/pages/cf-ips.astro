@@ -26,13 +26,17 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 
 <BaseLayout
   title="CF 优选 IP"
-  description="Cloudflare 优选 IP 定时更新，一键复制"
+  description="Cloudflare 优选 IP 定时更新，一键复制，支持延迟测试"
 >
   <section class="hero">
     <h1>CF 优选 IP</h1>
     <p class="bio">
       每 6 小时自动从公开数据源抓取更新。
       数据更新于 <time>{fmtTime}</time>（北京时间）。
+    </p>
+    <p class="bio">
+      点「测试延迟」会从你的浏览器直接向各 IP 发起连接，测出你当前网络的真实延迟，
+      并按延迟从低到高自动排序。
     </p>
   </section>
 
@@ -44,19 +48,29 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
             {sec.title}
             <span class="count">{groups[sec.key]?.length ?? 0} 个</span>
           </h2>
-          <button
-            class="copy-all"
-            data-copy-all={sec.key}
-            type="button"
-          >
-            复制全部
-          </button>
+          <div class="head-actions">
+            <button
+              class="test-btn"
+              data-test={sec.key}
+              type="button"
+            >
+              测试延迟
+            </button>
+            <button
+              class="copy-all"
+              data-copy-all={sec.key}
+              type="button"
+            >
+              复制全部
+            </button>
+          </div>
         </div>
         <p class="section-desc">{sec.desc}</p>
         <ul class="ip-list" id={`list-${sec.key}`}>
           {(groups[sec.key] ?? []).map((entry) => (
             <li class="ip-row">
               <code class="ip">{entry.ip}</code>
+              <span class="latency" hidden></span>
               {entry.colo && <span class="tag">{entry.colo}</span>}
               {entry.tag && <span class="tag">{entry.tag}</span>}
               <button
@@ -77,6 +91,7 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
   <h2 class="section-title">使用说明</h2>
   <ul class="about-list">
     <li>按你的宽带运营商选择对应分组，延迟通常最低。</li>
+    <li>点「测试延迟」从你当前网络实测各 IP 延迟，自动按最快排序，再「复制全部」拿走的就是最优顺序。</li>
     <li>把 IP 填到代理客户端的 Cloudflare 节点地址栏（只改地址，SNI/Host 保持原域名）。</li>
     <li>优选 IP 会随网络状况变化，定期回来复制最新的即可。</li>
   </ul>
@@ -94,6 +109,54 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 </BaseLayout>
 
 <script>
+  // 从浏览器直接向 IP 发起 HTTPS 连接，测量握手耗时。
+  // 直连 IP 证书必然校验失败，但失败前已完成 TCP + TLS 握手，
+  // 耗时与网络 RTT 正相关，足以用于排序筛选。
+  async function measureLatency(ip: string): Promise<number | null> {
+    const host = ip.includes(':') ? `[${ip}]` : ip;
+    const url = `https://${host}/`;
+    const TIMEOUT = 4000;
+    const start = performance.now();
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+      await fetch(url, {
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: ctrl.signal,
+      }).catch(() => {});
+      clearTimeout(timer);
+    } catch {
+      // ignore
+    }
+    const elapsed = performance.now() - start;
+    return elapsed >= TIMEOUT ? null : Math.round(elapsed);
+  }
+
+  async function runPool<T>(
+    items: T[],
+    limit: number,
+    fn: (item: T) => Promise<void>
+  ): Promise<void> {
+    let i = 0;
+    async function worker() {
+      while (i < items.length) {
+        const idx = i++;
+        await fn(items[idx]);
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(limit, items.length) }, worker)
+    );
+  }
+
+  function latencyClass(ms: number): string {
+    if (ms < 150) return 'fast';
+    if (ms < 400) return 'mid';
+    return 'slow';
+  }
+
+  // 复制
   function copyText(text: string, btn: HTMLButtonElement) {
     navigator.clipboard
       .writeText(text)
@@ -128,6 +191,58 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
       copyText(ips.join('\n'), btn);
     });
   });
+
+  // 延迟测试
+  document.querySelectorAll<HTMLButtonElement>('[data-test]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.test || '';
+      const list = document.getElementById(`list-${key}`);
+      if (!list) return;
+      const rows = Array.from(list.querySelectorAll<HTMLElement>('.ip-row'));
+      btn.disabled = true;
+      let done = 0;
+      const total = rows.length;
+      const updateLabel = () => {
+        btn.textContent = `测试中 ${done}/${total}`;
+      };
+      updateLabel();
+
+      await runPool(rows, 6, async (row) => {
+        const copyEl = row.querySelector<HTMLElement>('[data-copy]');
+        const ip = copyEl?.dataset.copy || '';
+        const ms = await measureLatency(ip);
+        row.dataset.latency = ms === null ? 'timeout' : String(ms);
+        const badge = row.querySelector<HTMLElement>('.latency');
+        if (badge) {
+          if (ms === null) {
+            badge.textContent = '超时';
+            badge.className = 'latency timeout';
+          } else {
+            badge.textContent = `${ms}ms`;
+            badge.className = `latency ${latencyClass(ms)}`;
+          }
+          badge.hidden = false;
+        }
+        done++;
+        updateLabel();
+      });
+
+      // 按延迟升序排列，超时的沉底
+      rows
+        .sort((a, b) => {
+          const la = a.dataset.latency || 'timeout';
+          const lb = b.dataset.latency || 'timeout';
+          if (la === 'timeout' && lb === 'timeout') return 0;
+          if (la === 'timeout') return 1;
+          if (lb === 'timeout') return -1;
+          return Number(la) - Number(lb);
+        })
+        .forEach((r) => list.appendChild(r));
+
+      btn.textContent = '重新测试';
+      btn.disabled = false;
+    });
+  });
 </script>
 
 <style>
@@ -140,10 +255,16 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    flex-wrap: wrap;
   }
 
   .ip-section-head .section-title {
     margin-bottom: 0.25rem;
+  }
+
+  .head-actions {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .count {
@@ -160,7 +281,8 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
   }
 
   .copy-all,
-  .copy-btn {
+  .copy-btn,
+  .test-btn {
     font: inherit;
     font-size: 0.82rem;
     color: var(--accent);
@@ -173,12 +295,14 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
   }
 
   .copy-all:hover,
-  .copy-btn:hover {
+  .copy-btn:hover,
+  .test-btn:hover {
     border-color: var(--accent);
   }
 
   .copy-all:disabled,
-  .copy-btn:disabled {
+  .copy-btn:disabled,
+  .test-btn:disabled {
     color: var(--muted);
     cursor: default;
   }
@@ -213,6 +337,39 @@ const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
     font-size: 0.92rem;
     background: none;
     padding: 0;
+  }
+
+  .latency {
+    font-size: 0.78rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .latency.fast {
+    color: #15803d;
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+  }
+
+  .latency.mid {
+    color: #b45309;
+    border-color: #fde68a;
+    background: #fffbeb;
+  }
+
+  .latency.slow {
+    color: #b91c1c;
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+
+  .latency.timeout {
+    color: var(--muted);
   }
 
   .ip-row .tag {
