@@ -1,0 +1,234 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import data from '../data/cf-ips.json';
+
+interface IpEntry {
+  ip: string;
+  colo?: string;
+  isp?: string;
+  port?: string;
+  tag?: string;
+}
+
+const groups = data.groups as Record<string, IpEntry[]>;
+
+const sections = [
+  { key: 'telecom', title: '电信优选', desc: '适合电信宽带' },
+  { key: 'unicom', title: '联通优选', desc: '适合联通宽带' },
+  { key: 'mobile', title: '移动优选', desc: '适合移动宽带' },
+  { key: 'ipv4', title: 'IPv4 综合', desc: '多源聚合，每 2 小时更新' },
+  { key: 'ipv6', title: 'IPv6 综合', desc: '多源聚合，每 2 小时更新' },
+];
+
+const updatedAt = new Date(data.updated_at);
+const fmtTime = updatedAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+---
+
+<BaseLayout
+  title="CF 优选 IP"
+  description="Cloudflare 优选 IP 定时更新，一键复制"
+>
+  <section class="hero">
+    <h1>CF 优选 IP</h1>
+    <p class="bio">
+      每 6 小时自动从公开数据源抓取更新。
+      数据更新于 <time>{fmtTime}</time>（北京时间）。
+    </p>
+  </section>
+
+  {
+    sections.map((sec) => (
+      <section class="ip-section">
+        <div class="ip-section-head">
+          <h2 class="section-title">
+            {sec.title}
+            <span class="count">{groups[sec.key]?.length ?? 0} 个</span>
+          </h2>
+          <button
+            class="copy-all"
+            data-copy-all={sec.key}
+            type="button"
+          >
+            复制全部
+          </button>
+        </div>
+        <p class="section-desc">{sec.desc}</p>
+        <ul class="ip-list" id={`list-${sec.key}`}>
+          {(groups[sec.key] ?? []).map((entry) => (
+            <li class="ip-row">
+              <code class="ip">{entry.ip}</code>
+              {entry.colo && <span class="tag">{entry.colo}</span>}
+              {entry.tag && <span class="tag">{entry.tag}</span>}
+              <button
+                class="copy-btn"
+                data-copy={entry.ip}
+                type="button"
+                aria-label={`复制 ${entry.ip}`}
+              >
+                复制
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
+  <h2 class="section-title">使用说明</h2>
+  <ul class="about-list">
+    <li>按你的宽带运营商选择对应分组，延迟通常最低。</li>
+    <li>把 IP 填到代理客户端的 Cloudflare 节点地址栏（只改地址，SNI/Host 保持原域名）。</li>
+    <li>优选 IP 会随网络状况变化，定期回来复制最新的即可。</li>
+  </ul>
+
+  <h2 class="section-title">数据来源</h2>
+  <ul class="about-list">
+    {
+      (data.sources as { name: string; url: string }[]).map((s) => (
+        <li>
+          <a href={s.url} target="_blank" rel="noopener">{s.name}</a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+
+<script>
+  function copyText(text: string, btn: HTMLButtonElement) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        const old = btn.textContent;
+        btn.textContent = '已复制';
+        btn.disabled = true;
+        setTimeout(() => {
+          btn.textContent = old;
+          btn.disabled = false;
+        }, 1200);
+      })
+      .catch(() => {
+        btn.textContent = '复制失败';
+      });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      copyText(btn.dataset.copy || '', btn);
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-copy-all]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.copyAll || '';
+      const list = document.getElementById(`list-${key}`);
+      if (!list) return;
+      const ips = Array.from(list.querySelectorAll<HTMLElement>('[data-copy]'))
+        .map((el) => el.dataset.copy || '')
+        .filter(Boolean);
+      copyText(ips.join('\n'), btn);
+    });
+  });
+</script>
+
+<style>
+  .ip-section {
+    margin-bottom: 2rem;
+  }
+
+  .ip-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .ip-section-head .section-title {
+    margin-bottom: 0.25rem;
+  }
+
+  .count {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 0.5rem;
+  }
+
+  .section-desc {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0 0 0.75rem;
+  }
+
+  .copy-all,
+  .copy-btn {
+    font: inherit;
+    font-size: 0.82rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.25rem 0.7rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .copy-all:hover,
+  .copy-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .copy-all:disabled,
+  .copy-btn:disabled {
+    color: var(--muted);
+    cursor: default;
+  }
+
+  .ip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .ip-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ip-row:last-child {
+    border-bottom: none;
+  }
+
+  .ip-row:nth-child(even) {
+    background: var(--bg-soft);
+  }
+
+  .ip {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92rem;
+    background: none;
+    padding: 0;
+  }
+
+  .ip-row .tag {
+    margin-right: 0;
+  }
+
+  .ip-row .copy-btn {
+    margin-left: auto;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
