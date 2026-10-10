@@ -1,0 +1,42 @@
+---
+import { getCollection, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map((post) => ({
+    params: { slug: post.id.replace(/\.md$/, '') },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+
+<BaseLayout
+  title={post.data.title}
+  description={post.data.description}
+  lang={post.data.lang === 'en' ? 'en' : 'zh-CN'}
+>
+  <article class="prose">
+    <h1>{post.data.title}</h1>
+    <div class="post-meta">
+      <time>{fmt(post.data.pubDate)}</time>
+      {post.data.tags.map((tag) => <span class="tag">{tag}</span>)}
+    </div>
+    <Content />
+  </article>
+  <p style="margin-top: 2.5rem;"><a href="/blog/">← 返回博客列表</a></p>
+</BaseLayout>
+
+<style>
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
