@@ -1,0 +1,56 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog'))
+  .filter((p) => p.data.lang === 'zh')
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 5);
+
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+
+<BaseLayout>
+  <section class="hero">
+    <h1>技术爱好者</h1>
+    <p class="bio">记录技术实践、自动化工具与自建服务</p>
+  </section>
+
+  <h2 class="section-title">最新文章</h2>
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li>
+          <a class="title" href={`/blog/${post.id.replace(/\.md$/, '')}/`}>
+            {post.data.title}
+          </a>
+          <div class="post-meta">
+            <time>{fmt(post.data.pubDate)}</time>
+            {post.data.tags.map((tag) => (
+              <span class="tag">{tag}</span>
+            ))}
+          </div>
+          <p class="post-desc">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+  <p><a href="/blog/">查看全部文章 →</a></p>
+
+  <h2 class="section-title">关于</h2>
+  <p>
+    这里记录折腾技术的过程：自建服务、自动化脚本、效率工具，
+    以及踩过的坑。中文为主，英文内容后续补充。
+  </p>
+  <p><a href="/about/">更多关于我 →</a></p>
+</BaseLayout>
+
+<style>
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
