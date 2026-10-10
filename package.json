@@ -1,0 +1,1 @@
+{"dependencies":{"astro":"^5.0.0"},"description":"技术爱好者 — 个人主页与技术博客（Astro + TypeScript + Markdown）","devDependencies":{"typescript":"^5.6.0"},"name":"tech-blog","scripts":{"astro":"astro","build":"astro build","dev":"astro dev","preview":"astro preview"},"type":"module","version":"1.0.0"}
