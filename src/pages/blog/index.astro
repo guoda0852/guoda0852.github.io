@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog'))
+  .filter((p) => p.data.lang === 'zh')
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+
+<BaseLayout title="博客" description="技术爱好者的博客文章列表">
+  <h1 class="section-title" style="margin-top: 0;">博客</h1>
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li>
+          <a class="title" href={`/blog/${post.id.replace(/\.md$/, '')}/`}>
+            {post.data.title}
+          </a>
+          <div class="post-meta">
+            <time>{fmt(post.data.pubDate)}</time>
+            {post.data.tags.map((tag) => (
+              <span class="tag">{tag}</span>
+            ))}
+          </div>
+          <p class="post-desc">{post.data.description}</p>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
