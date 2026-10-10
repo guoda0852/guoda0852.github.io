@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="关于" description="关于技术爱好者">
+  <h1 class="section-title" style="margin-top: 0;">关于</h1>
+
+  <p>你好，我是<strong>技术爱好者</strong>。</p>
+  <p>这个博客记录我的技术实践，主要有三块内容：</p>
+
+  <ul class="about-list">
+    <li><strong>技术实践</strong> — 折腾各种技术时留下的笔记和总结</li>
+    <li><strong>自动化工具</strong> — 脚本、定时任务、效率工具</li>
+    <li><strong>自建服务</strong> — 自己搭的服务：博客、节点、面板等</li>
+  </ul>
+
+  <p>博客用 Astro + TypeScript + Markdown 搭建，部署在 GitHub Pages 上，内容以中文为主。</p>
+
+  <h2 class="section-title">联系</h2>
+  <ul class="about-list">
+    <li>GitHub：<a href="https://github.com/guoda0852">guoda0852</a></li>
+  </ul>
+</BaseLayout>
+
+<style>
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
