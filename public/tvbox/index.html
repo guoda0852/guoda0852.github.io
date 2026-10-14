@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云播TV · 视频源站</title>
+<style>
+  :root { --bg:#0f1420; --card:#182033; --line:#26314d; --txt:#e8edf7; --dim:#8b96b3; --acc:#2dd4bf; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.7; padding:24px 16px 64px; }
+  .wrap { max-width:860px; margin:0 auto; }
+  h1 { font-size:26px; margin-bottom:4px; }
+  .sub { color:var(--dim); margin-bottom:28px; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:18px; }
+  .card h2 { font-size:17px; margin-bottom:12px; color:var(--acc); }
+  .urlbox { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
+  code.addr { flex:1; min-width:240px; background:#0b0f1a; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; word-break:break-all; color:#a7f3d0; }
+  button { background:var(--acc); color:#06251f; border:none; border-radius:8px; padding:10px 18px; font-size:14px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); }
+  button:active { opacity:.8; }
+  ol, ul { padding-left:20px; }
+  li { margin:6px 0; font-size:14px; }
+  .dim { color:var(--dim); font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--acc); font-weight:600; white-space:nowrap; }
+  details { margin-top:10px; }
+  summary { cursor:pointer; color:var(--acc); font-size:14px; font-weight:600; }
+  input, select, textarea { width:100%; background:#0b0f1a; border:1px solid var(--line); border-radius:8px; color:var(--txt); padding:9px 11px; font-size:14px; margin:4px 0 10px; }
+  label { font-size:13px; color:var(--dim); }
+  pre { background:#0b0f1a; border:1px solid var(--line); border-radius:8px; padding:12px; font-size:12.5px; overflow-x:auto; margin-top:10px; white-space:pre-wrap; word-break:break-all; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+  @media (max-width:600px){ .row{grid-template-columns:1fr;} }
+  #srcList { font-size:14px; }
+  .pill { display:inline-block; background:#0b0f1a; border:1px solid var(--line); border-radius:20px; padding:3px 12px; margin:3px 6px 3px 0; font-size:13px; }
+  .warn { background:#2a1e10; border:1px solid #8a5a1e; border-radius:10px; padding:12px 14px; font-size:13px; color:#f5cf8e; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📺 云播TV · 视频源站</h1>
+  <p class="sub">自有视频源配置中心 · 由 GitHub Pages 托管 · 更新推送后自动生效</p>
+
+  <div class="card">
+    <h2>① 配置地址</h2>
+    <p class="dim">把这个地址填进 App（设置 → 配置地址），或首次启动自动加载：</p>
+    <div class="urlbox">
+      <code class="addr" id="cfgUrl">https://guoda0852.github.io/tvbox/box.json</code>
+      <button onclick="copyCfg()">复制</button>
+    </div>
+    <ol>
+      <li>电视上打开 <b>云播TV</b> → 设置 → 配置地址</li>
+      <li>粘贴上面的地址 → 确定</li>
+      <li>返回首页，源站即加载完成</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>② 当前源一览</h2>
+    <div id="srcList"><span class="dim">加载中…</span></div>
+  </div>
+
+  <div class="card">
+    <h2>③ 添加新源</h2>
+    <p class="dim">填表生成 JSON 片段，复制后合入 <code>box.json</code> 的 <code>sites</code> 数组即可。</p>
+    <div class="row">
+      <div><label>显示名称 name</label><input id="f_name" placeholder="例如：我的片库"></div>
+      <div><label>唯一标识 key</label><input id="f_key" placeholder="例如：csp_MyVod"></div>
+    </div>
+    <div class="row">
+      <div><label>类型 type</label>
+        <select id="f_type">
+          <option value="3">3 · spider jar（推荐）</option>
+          <option value="0">0 · 采集站 XML 接口</option>
+          <option value="1">1 · 采集站 JSON 接口</option>
+        </select>
+      </div>
+      <div><label>接口 api</label><input id="f_api" placeholder="type=3 填 csp_xxx；type=0/1 填规则名或URL"></div>
+    </div>
+    <label>扩展参数 ext（spider 的外部配置URL，可空）</label>
+    <input id="f_ext" placeholder="https://…/ext.json">
+    <div class="urlbox">
+      <button onclick="genSite()">生成 JSON</button>
+      <button class="ghost" onclick="copySite()">复制结果</button>
+    </div>
+    <pre id="siteOut">// 点「生成 JSON」后显示在这里</pre>
+  </div>
+
+  <div class="card">
+    <h2>④ 格式速查</h2>
+    <details open>
+      <summary>sites（点播源）字段</summary>
+      <table>
+        <tr><th>字段</th><th>说明</th></tr>
+        <tr><td>key</td><td>源唯一标识，勿重复</td></tr>
+        <tr><td>name</td><td>App 首页显示的名称</td></tr>
+        <tr><td>type</td><td>0=采集站 XML 接口（苹果CMS）· 1=采集站 JSON 接口 · 3=spider jar（api 填 csp_类名）</td></tr>
+        <tr><td>api</td><td>type=3 时填 jar 内的类名（如 csp_Demo → com.github.catvod.spider.Demo）；type=0/1 时填采集接口地址</td></tr>
+        <tr><td>ext</td><td>扩展配置（json 地址或参数），可空</td></tr>
+        <tr><td>searchable</td><td>1=参与全局搜索，0=不参与</td></tr>
+        <tr><td>quickSearch</td><td>1=支持快捷搜索</td></tr>
+        <tr><td>filterable</td><td>1=支持分类筛选</td></tr>
+      </table>
+    </details>
+    <details>
+      <summary>lives（直播源）字段</summary>
+      <table>
+        <tr><th>字段</th><th>说明</th></tr>
+        <tr><td>name</td><td>分组显示名称</td></tr>
+        <tr><td>type</td><td>0=外链 txt/m3u</td></tr>
+        <tr><td>url</td><td>频道列表文件地址（txt：<code>名称,播放地址</code> 每行一个；分组行以 <code>,#genre#</code> 结尾）</td></tr>
+        <tr><td>epg</td><td>节目单地址（可空）</td></tr>
+      </table>
+    </details>
+    <details>
+      <summary>parses（解析接口）字段</summary>
+      <table>
+        <tr><th>字段</th><th>说明</th></tr>
+        <tr><td>name</td><td>接口名称</td></tr>
+        <tr><td>type</td><td>0=Web 聚合 · 1=Json 聚合</td></tr>
+        <tr><td>url</td><td>接口地址（把视频页地址拼在 ?url= 后面）</td></tr>
+      </table>
+    </details>
+    <div class="warn">⚠️ 本站是公开仓库，只放演示源与格式文档。正式采集源建议放到你自己的甲骨文服务器上私密托管，不要进公开仓库。</div>
+  </div>
+
+  <div class="card">
+    <h2>⑤ 更新流程</h2>
+    <ol>
+      <li>改 <code>box.json</code> / <code>live.txt</code> / <code>jar/</code></li>
+      <li>push 到 GitHub，Pages 自动重新部署（约 1 分钟）</li>
+      <li>App 端：设置 → 刷新配置，即生效</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+function copyCfg(){
+  const t = document.getElementById('cfgUrl').innerText;
+  navigator.clipboard.writeText(t).then(()=>alert('已复制：'+t));
+}
+function genSite(){
+  const v = id => document.getElementById(id).value.trim();
+  const o = {
+    key: v('f_key') || 'csp_New',
+    name: v('f_name') || '新源',
+    type: parseInt(v('f_type'),10),
+    api: v('f_api') || 'csp_New',
+    searchable: 1, quickSearch: 1, filterable: 1,
+    ext: v('f_ext')
+  };
+  document.getElementById('siteOut').textContent = JSON.stringify(o, null, 2);
+}
+function copySite(){
+  const t = document.getElementById('siteOut').textContent;
+  navigator.clipboard.writeText(t).then(()=>alert('已复制 JSON 片段'));
+}
+fetch('box.json').then(r=>r.json()).then(j=>{
+  let h = '';
+  (j.sites||[]).forEach(s=>{ h += '<span class="pill">🎬 '+s.name+' <span class="dim">('+s.key+')</span></span>'; });
+  (j.lives||[]).forEach(l=>{ h += '<span class="pill">📡 '+l.name+'</span>'; });
+  document.getElementById('srcList').innerHTML = h || '<span class="dim">暂无源</span>';
+}).catch(()=>{ document.getElementById('srcList').innerHTML = '<span class="dim">box.json 尚未部署</span>'; });
+</script>
+</body>
+</html>
